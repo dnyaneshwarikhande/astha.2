@@ -1,0 +1,101 @@
+Arithmatic.idl
+module Arithmetic {
+    interface Calculator {
+        float add(in float x, in float y);
+        float subtract(in float x, in float y);
+        float multiply(in float x, in float y);
+        float divide(in float x, in float y);
+    };
+};
+ArthmeticServer.java
+import Arithmetic.*;
+   import org.omg.CosNaming.*;
+    import org.omg.CosNaming.NamingContextPackage.*;
+    import org.omg.CORBA.*;
+    import org.omg.PortableServer.*;
+    import org.omg.PortableServer.POA;
+    import java.util.Properties;
+     
+class CalculatorImpl extends CalculatorPOA {
+    public float add(float x, float y) {
+        return x + y;
+    }
+    public float subtract(float x, float y) {
+        return x - y;
+    }
+    public float multiply(float x, float y) {
+        return x * y;
+    }
+    public float divide(float x, float y) {
+        if (y == 0) {
+            throw new ArithmeticException("Cannot divide by zero");
+        }
+        return x / y;
+    }
+}
+public class ArithmeticServer {
+    public static void main(String args[]) {
+        try {
+            // Create and initialize the ORB
+            ORB orb = ORB.init(args, null);      
+            POA rootpoa = POAHelper.narrow(orb.resolve_initial_references("RootPOA"));
+            rootpoa.the_POAManager().activate();
+     
+            // Create the CalculatorImpl object
+            CalculatorImpl calculator = new CalculatorImpl();
+	 
+            // Get the object reference for the CalculatorImpl object
+            org.omg.CORBA.Object ref = rootpoa.servant_to_reference(calculator);
+            Calculator cref = CalculatorHelper.narrow(ref);
+            // Bind the object reference to the Naming Service
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+            NameComponent path[] = ncRef.to_name("Calculator");
+            ncRef.rebind(path, cref);
+            // Wait for invocations from clients
+            System.out.println("Server is ready and waiting...");
+            orb.run();
+        } catch (Exception e) {
+            System.err.println("Error: " + e);
+            e.printStackTrace(System.out);
+        }
+    }
+}
+ArithmeticClient.java
+import Arithmetic.*;
+ import org.omg.CosNaming.*;
+    import org.omg.CosNaming.NamingContextPackage.*;
+    import org.omg.CORBA.*;
+    import java.io.*;
+    import java.util.*;
+public class ArithmeticClient {
+    public static void main(String args[]) {
+        try {
+            // Create and initialize the ORB
+            ORB orb = ORB.init(args, null);
+            // Get the object reference for the Calculator from the Naming Service
+            org.omg.CORBA.Object objRef = orb.resolve_initial_references("NameService");
+            NamingContextExt ncRef = NamingContextExtHelper.narrow(objRef);
+            Calculator calculator = CalculatorHelper.narrow(ncRef.resolve_str("Calculator"));
+            // Perform arithmetic operations
+             Scanner scanner = new Scanner(System.in);		
+      	     System.out.print("Enter the value for x: ");
+            int x = scanner.nextInt();
+            System.out.print("Enter the value for y: ");
+            int y = scanner.nextInt();
+            System.out.println("Addition: " + calculator.add(x, y));
+            System.out.println("Subtraction: " + calculator.subtract(x, y));
+            System.out.println("Multiplication: " + calculator.multiply(x, y));
+            System.out.println("Division: " + calculator.divide(x, y));
+        } catch (Exception e) {
+            System.err.println("Error: " + e);
+            e.printStackTrace(System.out);
+        }
+    }
+}
+Command: 
+Idlj -fall Addition.idl
+javac*.java AdditionApp/*.java
+orbd -ORBInitialPort 1050&
+java ArithmeticServer -ORBInitialPort 1050 -ORBInitialHost localhost&
+java ArithmeticClient -ORBInitialPort 1050 -ORBInitialHost localhost
